@@ -50,3 +50,58 @@ def parse_json(data):
 ######################################################################
 # INSERT CODE HERE
 ######################################################################
+
+@app.route("/health",methods=["GET"])
+def get_health():
+    return({"status":"Ok"}, 200)
+
+@app.route("/count",methods=["GET"])
+def get_count():
+    count = db.songs.count_documents({})
+    return ({"count": count}, 200)
+
+@app.route("/song",methods=["GET"])
+def songs():
+    songs = list(db.songs.find({}))
+    return ({"songs": parse_json(songs)}, 200)
+
+@app.route("/song/<int:id>",methods=["GET"])
+def get_song_by_id(id):
+    song_found = db.songs.find_one({"id": id})
+    if not song_found:
+        return ({"message": f"song with id {id} not found"}, 404)
+    return parse_json(song_found), 200
+
+@app.route("/song",methods=["POST"])
+def create_song():
+    song = request.json
+    song_found = db.songs.find_one({"id": song["id"]})
+    if song_found:
+        return ({"Message": f"song with id {song['id']} already present"}, 302)
+    insert_id: InsertOneResult = db.songs.insert_one(song)
+    return {"inserted id": parse_json(insert_id.inserted_id)}, 201
+
+@app.route("/song/<int:id>",methods=["PUT"])
+def update_song(id):
+    song_req = request.json
+    song_found = db.songs.find_one({"id": id})
+    changes = {"$set": song_req}
+    if not song_found:
+        return ({"message": "song not found"}, 404)
+    updated_song = db.songs.update_one({"id": id}, changes)
+    if updated_song.modified_count == 0:
+        return {"message": "song found, but nothing updated"}, 200
+    return parse_json(db.songs.find_one({"id": id})), 201
+
+@app.route("/song/<int:id>",methods=["DELETE"])
+def delete_song(id):
+    req_id = request.args.get("id")
+    result = db.songs.delete_one({"id": req_id})
+    if result.deleted_count == 0 :
+        return ({"message": "song not found"}, 404)
+    elif result.deleted_count == 1:
+        return ({}, 204)
+    else:
+        return ({"message": f"error occured during delition process of song id {req_id}"}, 500)
+    
+    
